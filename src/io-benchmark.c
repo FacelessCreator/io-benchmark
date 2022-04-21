@@ -166,14 +166,20 @@ int fork_and_exec(const char * path, char * const * args) {
 int launch_writer(int id) {
     char args_string [512];
     long blocks_count = total_size / processes_count / block_size;
-    sprintf(args_string, WRITER_PATH " --file %s/" FILE_NAMES_START "%d.bin --block-size %ld --count %ld", folder_path, id, block_size, blocks_count); // TODO add randomly flag
+    sprintf(args_string, WRITER_PATH " --file %s/" FILE_NAMES_START "%d.bin --block-size %ld --count %ld", folder_path, id, block_size, blocks_count);
+    if (flag_randomly) {
+        strcat(args_string, " --randomly");
+    }
     char ** args = str_split(args_string, ' ');
     return fork_and_exec(WRITER_PATH, args);
 }
 
 int launch_reader(int id) {
     char args_string [512];
-    sprintf(args_string, READER_PATH " --file %s/" FILE_NAMES_START "%d.bin --block-size %ld", folder_path, id, block_size); // TODO add randomly flag
+    sprintf(args_string, READER_PATH " --file %s/" FILE_NAMES_START "%d.bin --block-size %ld", folder_path, id, block_size);
+    if (flag_randomly) {
+        strcat(args_string, " --randomly");
+    }
     char ** args = str_split(args_string, ' ');
     return fork_and_exec(READER_PATH, args);
 }
@@ -257,7 +263,7 @@ int main(int argc, char * argv []) {
     printf("Read in %f s\n", reading_time);
     // clear
     if (clear()) {
-        return 3;
+        return 3; // error already printed
     }
     return 0;
 }
