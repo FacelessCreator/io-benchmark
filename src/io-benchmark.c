@@ -117,14 +117,27 @@ char** str_split(char* a_str, const char a_delim)
     return result;
 }
 
+void print_args(char * const * args) {
+    int i = 0;
+    printf("args: ");
+    while (args[i] != 0)
+    {
+        printf("%s ", args[i]);
+        ++i;
+    }
+    printf("\n");
+}
+
 int fork_and_exec(const char * path, char * const * args) {
+    print_args(args);
     pid_t pid = fork();
     if (pid < 0) {
         return 1;
     } else if (pid == 0) { // child
-        if(execvp(path, args) < 0) {
+        char * env [] = {NULL};
+        if(execve(path, args, env) == -1) {
             fprintf(stderr, "Execution of %s failed\n", path);
-            
+            exit(2);
         }
     }
     return 0;
@@ -133,20 +146,20 @@ int fork_and_exec(const char * path, char * const * args) {
 int launch_writer(int id) {
     char args_string [512];
     long blocks_count = total_size / processes_count / block_size;
-    sprintf(args_string, "-f %s/" FILE_NAMES_START "%d.bin -b %ld -c %ld", folder_path, id, block_size, blocks_count); // TODO add randomly flag
+    sprintf(args_string, WRITER_PATH " --file %s/" FILE_NAMES_START "%d.bin --block-size %ld --count %ld", folder_path, id, block_size, blocks_count); // TODO add randomly flag
     char ** args = str_split(args_string, ' ');
     return fork_and_exec(WRITER_PATH, args);
 }
 
 int launch_reader(int id) {
     char args_string [512];
-    sprintf(args_string, "-f %s/" FILE_NAMES_START "%d.bin -b %ld", folder_path, id, block_size); // TODO add randomly flag
+    sprintf(args_string, READER_PATH " --file %s/" FILE_NAMES_START "%d.bin --block-size %ld", folder_path, id, block_size); // TODO add randomly flag
     char ** args = str_split(args_string, ' ');
     return fork_and_exec(READER_PATH, args);
 }
 
-time_t launch_tests(int (* launch_func) (int)) {
-    time_t start_time = time(0);
+clock_t launch_tests(int (* launch_func) (int)) {
+    clock_t start_time = clock();
     // launch
     for (int i = 0; i < processes_count; ++i) {
         if (launch_func(i)) {
@@ -159,7 +172,7 @@ time_t launch_tests(int (* launch_func) (int)) {
         wait(&writer_status);
     }
     // return delta
-    return time(0) - start_time;
+    return clock() - start_time;
 }
 
 void print_help() {
@@ -190,19 +203,21 @@ int main(int argc, char * argv []) {
         return 2;
     }
     // do writing tests
-    time_t writing_time = launch_tests(&launch_writer);
+    clock_t writing_time = launch_tests(&launch_writer);
     // sync
-    time_t sync_start_time = time(0);
+    clock_t sync_start_time = clock();
     system("sync");
-    writing_time += time(0) - sync_start_time;
+    writing_time += clock() - sync_start_time;
     // report
-    printf("Written in %ld\n", writing_time);
+    double writing_seconds = ((double) writing_time) / CLOCKS_PER_SEC;
+    printf("Written in %f s\n", writing_seconds);
     // flush disk cache (root only)
     // TODO
     // do reading tests
-    time_t reading_time = launch_tests(&launch_reader);
+    clock_t reading_time = launch_tests(&launch_reader);
     // report
-    printf("Read in %ld\n", reading_time);
+    double reading_seconds = ((double) reading_time) / CLOCKS_PER_SEC;
+    printf("Read in %f s\n", reading_seconds);
     // clear
     // TODO
     return 0;
