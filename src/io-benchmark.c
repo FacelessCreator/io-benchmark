@@ -33,6 +33,26 @@ static struct option opts [] = {
     {0, 0, 0, 0}
 };
 
+long interpret_string_as_bytes_size(char * s) {
+    long result = atol(s);
+    size_t l = strlen(s);
+    switch (s[l-1])
+    {
+    case 'k': case 'K':
+        result *= 1024;
+        break;
+    case 'm': case 'M':
+        result *= 1024*1024;
+        break;
+    case 'g': case 'G':
+        result *= 1024*1024*1024;
+        break;
+    default:
+        break;
+    }
+    return result;
+}
+
 int read_args(int argc, char * argv []) {
     int opt_c;
     int opt_i;
@@ -48,7 +68,7 @@ int read_args(int argc, char * argv []) {
             folder_path = optarg;
             break;
         case 's':
-            total_size = atol(optarg);
+            total_size = interpret_string_as_bytes_size(optarg);
             break;
         case 'b':
             block_size = atol(optarg);
@@ -129,7 +149,7 @@ void print_args(char * const * args) {
 }
 
 int fork_and_exec(const char * path, char * const * args) {
-    print_args(args);
+    //print_args(args);
     pid_t pid = fork();
     if (pid < 0) {
         return 1;
@@ -158,8 +178,9 @@ int launch_reader(int id) {
     return fork_and_exec(READER_PATH, args);
 }
 
-clock_t launch_tests(int (* launch_func) (int)) {
-    clock_t start_time = clock();
+double launch_tests(int (* launch_func) (int)) {
+    struct timespec start_time;
+    timespec_get(&start_time, TIME_UTC);
     // launch
     for (int i = 0; i < processes_count; ++i) {
         if (launch_func(i)) {
@@ -172,13 +193,33 @@ clock_t launch_tests(int (* launch_func) (int)) {
         wait(&writer_status);
     }
     // return delta
-    return clock() - start_time;
+    struct timespec end_time;
+    timespec_get(&end_time, TIME_UTC);
+    return (end_time.tv_sec-start_time.tv_sec) + 1e-9 * (end_time.tv_nsec-start_time.tv_nsec);
+}
+
+double do_sync() {
+    struct timespec start_time;
+    timespec_get(&start_time, TIME_UTC);
+    system("sync");
+    struct timespec end_time;
+    timespec_get(&end_time, TIME_UTC);
+    return (end_time.tv_sec-start_time.tv_sec) + 1e-9 * (end_time.tv_nsec-start_time.tv_nsec);
+}
+
+int clear() {
+    for (int i = 0; i < processes_count; ++i) {
+        char command [512];
+        sprintf(command, "rm %s/%s%d.bin", folder_path, FILE_NAMES_START, i);
+        system(command);
+    }
+    return 0;
 }
 
 void print_help() {
     printf("IO benchmark\n");
     printf("--folder PATH | -f PATH sets folder to create files (required argument)\n");
-    printf("--size SIZE | -s SIZE sets total size to write and read in bytes. (required argument)\n");
+    printf("--size SIZE | -s SIZE sets total size to write and read in bytes. You can use K (kibibytes), M (mebibytes) and G (gibibytes) ending (required argument)\n");
     printf("--block-size SIZE | -b SIZE sets block size to write and read each time. Default value is %d\n", DEFAULT_BLOCK_SIZE);
     printf("--processes COUNT | -p COUNT sets count of parallel processes\n");
     printf("--randomly | -r makes tests to lseek each time to random block\n");
@@ -203,22 +244,20 @@ int main(int argc, char * argv []) {
         return 2;
     }
     // do writing tests
-    clock_t writing_time = launch_tests(&launch_writer);
+    double writing_time = launch_tests(&launch_writer);
     // sync
-    clock_t sync_start_time = clock();
-    system("sync");
-    writing_time += clock() - sync_start_time;
+    writing_time += do_sync();
     // report
-    double writing_seconds = ((double) writing_time) / CLOCKS_PER_SEC;
-    printf("Written in %f s\n", writing_seconds);
+    printf("Written in %f s\n", writing_time);
     // flush disk cache (root only)
     // TODO
     // do reading tests
-    clock_t reading_time = launch_tests(&launch_reader);
+    double reading_time = launch_tests(&launch_reader);
     // report
-    double reading_seconds = ((double) reading_time) / CLOCKS_PER_SEC;
-    printf("Read in %f s\n", reading_seconds);
+    printf("Read in %f s\n", reading_time);
     // clear
-    // TODO
+    if (clear()) {
+        return 3;
+    }
     return 0;
 }
