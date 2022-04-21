@@ -104,7 +104,7 @@ int main(int argc, char * argv []) {
         void * buf = malloc(block_size);
         off_t random_off;
         for (long i = 0; i < blocks_count; ++i) {
-            random_off = rand() % blocks_count;
+            random_off = (rand() % blocks_count) * block_size;
             lseek(fd, random_off, SEEK_SET);
             if (read(source_fd, buf, block_size) != block_size) {
                 fprintf(stderr, "Error while reading source %s\n", source_path);

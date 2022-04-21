@@ -91,7 +91,7 @@ int main(int argc, char * argv []) {
         ssize_t read_bytes;
         void * buf = malloc(block_size);
         for (long i = 0; i < blocks_count; ++i) {
-            random_off = rand() % blocks_count;
+            random_off = (rand() % blocks_count) * block_size;
             if (blocks_count > RAND_MAX) { // for large files
                 lseek(fd, random_off, SEEK_CUR);
             } else {
