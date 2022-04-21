@@ -67,8 +67,8 @@ int main(int argc, char * argv []) {
     if (help_required) {
         printf("IO benchmark writer\n");
         printf("--file PATH | -f PATH sets path to file to write (required argument)\n");
-        printf("--source PATH | -s PATH sets the source of bytes. Default value is %s", DEFAULT_SOURCE_PATH);
-        printf("--block-size SIZE | -b SIZE sets block size to write each time (required argument)\n");
+        printf("--source PATH | -s PATH sets the source of bytes. Default value is %s\n", DEFAULT_SOURCE_PATH);
+        printf("--block-size SIZE | -b SIZE sets block size to write each time. Default value is %d\n", DEFAULT_BLOCK_SIZE);
         printf("--count COUNT | -c COUNT sets count of blocks to write\n");
         printf("--randomly | -r makes writer to lseek each time to random block\n");
         printf("--help | -h shows this tip\n");
