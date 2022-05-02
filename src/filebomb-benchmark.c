@@ -141,7 +141,7 @@ void print_args(char * const * args) {
 }
 
 int fork_and_exec(const char * path, char * const * args) {
-    print_args(args);
+    //print_args(args);
     pid_t pid = fork();
     if (pid < 0) {
         return 1;
