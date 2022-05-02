@@ -8,27 +8,23 @@
 #include <string.h>
 #include <assert.h>
 
-#define WRITER_PATH "build/io-benchmark-writer"
-#define READER_PATH "build/io-benchmark-reader"
+#define WRITER_PATH "build/filebomb-benchmark-writer"
+#define READER_PATH "build/filebomb-benchmark-reader"
 
-#define FILE_NAMES_START "io-benchmark-"
-
-#define DEFAULT_BLOCK_SIZE 512
+#define DEFAULT_FILE_SIZE 512
 #define DEFAULT_PROCESSES_COUNT 1
 
 static char * folder_path = 0;
 static long total_size = 0;
-static long block_size = DEFAULT_BLOCK_SIZE;
+static long file_size = DEFAULT_FILE_SIZE;
 static int processes_count = DEFAULT_PROCESSES_COUNT;
-static int flag_randomly = 0;
 static int flag_help = 0;
 
 static struct option opts [] = {
     {"folder", required_argument, 0, 'f'},
     {"size", required_argument, 0, 's'},
-    {"block-size", required_argument, 0, 'b'},
+    {"file-size", required_argument, 0, 'b'},
     {"processes", required_argument, 0, 'p'},
-    {"randomly", no_argument, 0, 'r'},
     {"help", no_argument, 0, 'h'},
     {0, 0, 0, 0}
 };
@@ -56,7 +52,7 @@ long interpret_string_as_bytes_size(char * s) {
 int read_args(int argc, char * argv []) {
     int opt_c;
     int opt_i;
-    while ((opt_c = getopt_long(argc, argv, "f:s:b:p:rh", opts, &opt_i)) != -1)
+    while ((opt_c = getopt_long(argc, argv, "f:s:b:p:h", opts, &opt_i)) != -1)
     {
         switch (opt_c)
         {
@@ -71,13 +67,10 @@ int read_args(int argc, char * argv []) {
             total_size = interpret_string_as_bytes_size(optarg);
             break;
         case 'b':
-            block_size = atol(optarg);
+            file_size = atol(optarg);
             break;
         case 'p':
             processes_count = atoi(optarg);
-            break;
-        case 'r':
-            flag_randomly = 1;
             break;
         case 'h':
             flag_help = 1;
@@ -89,8 +82,7 @@ int read_args(int argc, char * argv []) {
     return 0;
 }
 
-char** str_split(char* a_str, const char a_delim)
-{
+char** str_split(char* a_str, const char a_delim) {
     char** result    = 0;
     size_t count     = 0;
     char* tmp        = a_str;
@@ -149,7 +141,7 @@ void print_args(char * const * args) {
 }
 
 int fork_and_exec(const char * path, char * const * args) {
-    //print_args(args);
+    print_args(args);
     pid_t pid = fork();
     if (pid < 0) {
         return 1;
@@ -165,21 +157,15 @@ int fork_and_exec(const char * path, char * const * args) {
 
 int launch_writer(int id) {
     char args_string [512];
-    long blocks_count = total_size / processes_count / block_size;
-    sprintf(args_string, WRITER_PATH " --file %s/" FILE_NAMES_START "%d.bin --block-size %ld --count %ld", folder_path, id, block_size, blocks_count);
-    if (flag_randomly) {
-        strcat(args_string, " --randomly");
-    }
+    long files_count = total_size / processes_count / file_size;
+    sprintf(args_string, WRITER_PATH " --folder %s/%d --file-size %ld --count %ld", folder_path, id, file_size, files_count);
     char ** args = str_split(args_string, ' ');
     return fork_and_exec(WRITER_PATH, args);
 }
 
 int launch_reader(int id) {
     char args_string [512];
-    sprintf(args_string, READER_PATH " --file %s/" FILE_NAMES_START "%d.bin --block-size %ld", folder_path, id, block_size);
-    if (flag_randomly) {
-        strcat(args_string, " --randomly");
-    }
+    sprintf(args_string, READER_PATH " --folder %s/%d", folder_path, id);
     char ** args = str_split(args_string, ' ');
     return fork_and_exec(READER_PATH, args);
 }
@@ -213,23 +199,31 @@ double do_sync() {
     return (end_time.tv_sec-start_time.tv_sec) + 1e-9 * (end_time.tv_nsec-start_time.tv_nsec);
 }
 
-int clear() {
+int make_dirs() {
+    char command [512];
     for (int i = 0; i < processes_count; ++i) {
-        char command [512];
-        sprintf(command, "rm %s/%s%d.bin", folder_path, FILE_NAMES_START, i);
+        sprintf(command, "mkdir -p %s/%d", folder_path, i);
+        system(command);
+    }
+    return 0;
+}
+
+int clear() {
+    char command [512];
+    for (int i = 0; i < processes_count; ++i) {
+        sprintf(command, "rm -r %s/%d", folder_path, i);
         system(command);
     }
     return 0;
 }
 
 void print_help() {
-    printf("IO benchmark\n");
-    printf("This utility writes and reads a few large files and records operation time.\n");
+    printf("Filebomb benchmark\n");
+    printf("This utility writes and reads lots of files and records operation time.\n");
     printf("--folder PATH | -f PATH sets folder to create files (required argument)\n");
     printf("--size SIZE | -s SIZE sets total size to write and read in bytes. You can use K (kibibytes), M (mebibytes) and G (gibibytes) ending (required argument)\n");
-    printf("--block-size SIZE | -b SIZE sets block size to write and read each time. Default value is %d\n", DEFAULT_BLOCK_SIZE);
+    printf("--file-size SIZE | -b SIZE sets file size to write and read each time. Default value is %d\n", DEFAULT_FILE_SIZE);
     printf("--processes COUNT | -p COUNT sets count of parallel processes\n");
-    printf("--randomly | -r makes tests to lseek each time to random block\n");
     printf("--help | -h shows this tip\n");
 }
 
@@ -247,16 +241,20 @@ int main(int argc, char * argv []) {
         return 2;
     }
     if (total_size <= 0) {
-        fprintf(stderr, "Size was not set. See help\n");
+        fprintf(stderr, "Size was not set properly. See help\n");
         return 2;
     }
     if (processes_count <= 0) {
         fprintf(stderr, "Process count was not set properly. See help\n");
         return 2;
     }
-    if (block_size <= 0) {
-        fprintf(stderr, "Block size was not set properly. See help\n");
+    if (file_size <= 0) {
+        fprintf(stderr, "File size was not set properly. See help\n");
         return 2;
+    }
+    // prepare folders
+    if(make_dirs()) {
+        return 3; // error already printed
     }
     // do writing tests
     double writing_time = launch_tests(&launch_writer);
@@ -272,7 +270,7 @@ int main(int argc, char * argv []) {
     printf("Read in %f s\n", reading_time);
     // clear
     if (clear()) {
-        return 3; // error already printed
+        return 4; // error already printed
     }
     return 0;
 }

@@ -56,10 +56,12 @@ int main(int argc, char * argv []) {
     // check help
     if (help_required) {
         printf("IO benchmark reader\n");
+        printf("This utility reads large file.\n");
         printf("--file PATH | -f PATH sets path to file to read (required argument)\n");
         printf("--block-size SIZE | -b SIZE sets block size to read each time. Default value %d\n", DEFAULT_BLOCK_SIZE);
         printf("--randomly | -r makes reader to lseek each time to random block\n");
         printf("--help | -h shows this tip\n");
+        return 0;
     }
     // check options
     if (!file_path) {

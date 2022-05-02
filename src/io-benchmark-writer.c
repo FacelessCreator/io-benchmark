@@ -33,7 +33,7 @@ int main(int argc, char * argv []) {
     // read args
     int opt_c;
     int opt_i;
-    while ((opt_c = getopt_long(argc, argv, "f:b:rh", opts, &opt_i)) != -1)
+    while ((opt_c = getopt_long(argc, argv, "f:s:b:c:rh", opts, &opt_i)) != -1)
     {
         switch (opt_c)
         {
@@ -66,12 +66,14 @@ int main(int argc, char * argv []) {
     // check help
     if (help_required) {
         printf("IO benchmark writer\n");
+        printf("This utility writes large file.\n");
         printf("--file PATH | -f PATH sets path to file to write (required argument)\n");
         printf("--source PATH | -s PATH sets the source of bytes. Default value is %s\n", DEFAULT_SOURCE_PATH);
         printf("--block-size SIZE | -b SIZE sets block size to write each time. Default value is %d\n", DEFAULT_BLOCK_SIZE);
         printf("--count COUNT | -c COUNT sets count of blocks to write\n");
         printf("--randomly | -r makes writer to lseek each time to random block\n");
         printf("--help | -h shows this tip\n");
+        return 0;
     }
     // check options
     if (!file_path) {
@@ -86,7 +88,7 @@ int main(int argc, char * argv []) {
         fprintf(stderr, "Blocks count was not set properly. See help\n");
         return 3;
     }
-    // do reading
+    // do writing
     int fd = open(file_path, O_WRONLY | O_CREAT, 0644);
     int source_fd = open(source_path, O_RDONLY);
     if (fd == -1) {
