@@ -18,6 +18,7 @@ static char * folder_path = 0;
 static long total_size = 0;
 static long file_size = DEFAULT_FILE_SIZE;
 static int processes_count = DEFAULT_PROCESSES_COUNT;
+static int flag_no_clear = 0;
 static int flag_help = 0;
 
 static struct option opts [] = {
@@ -25,6 +26,7 @@ static struct option opts [] = {
     {"size", required_argument, 0, 's'},
     {"file-size", required_argument, 0, 'b'},
     {"processes", required_argument, 0, 'p'},
+    {"no-clear", no_argument, 0, 'c'},
     {"help", no_argument, 0, 'h'},
     {0, 0, 0, 0}
 };
@@ -71,6 +73,9 @@ int read_args(int argc, char * argv []) {
             break;
         case 'p':
             processes_count = atoi(optarg);
+            break;
+        case 'c':
+            flag_no_clear = 1;
             break;
         case 'h':
             flag_help = 1;
@@ -224,6 +229,7 @@ void print_help() {
     printf("--size SIZE | -s SIZE sets total size to write and read in bytes. You can use K (kibibytes), M (mebibytes) and G (gibibytes) ending (required argument)\n");
     printf("--file-size SIZE | -b SIZE sets file size to write and read each time. Default value is %d\n", DEFAULT_FILE_SIZE);
     printf("--processes COUNT | -p COUNT sets count of parallel processes\n");
+    printf("--no-clear prevents benchmark from clearing temp files\n");
     printf("--help | -h shows this tip\n");
 }
 
@@ -269,8 +275,10 @@ int main(int argc, char * argv []) {
     // report
     printf("Read in %f s\n", reading_time);
     // clear
-    if (clear()) {
-        return 4; // error already printed
+    if (!flag_no_clear) {
+        if (clear()) {
+            return 4; // error already printed
+        }
     }
     return 0;
 }

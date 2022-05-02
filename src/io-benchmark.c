@@ -21,6 +21,7 @@ static long total_size = 0;
 static long block_size = DEFAULT_BLOCK_SIZE;
 static int processes_count = DEFAULT_PROCESSES_COUNT;
 static int flag_randomly = 0;
+static int flag_no_clear = 0;
 static int flag_help = 0;
 
 static struct option opts [] = {
@@ -29,6 +30,7 @@ static struct option opts [] = {
     {"block-size", required_argument, 0, 'b'},
     {"processes", required_argument, 0, 'p'},
     {"randomly", no_argument, 0, 'r'},
+    {"no-clear", no_argument, 0, 'c'},
     {"help", no_argument, 0, 'h'},
     {0, 0, 0, 0}
 };
@@ -78,6 +80,9 @@ int read_args(int argc, char * argv []) {
             break;
         case 'r':
             flag_randomly = 1;
+            break;
+        case 'c':
+            flag_no_clear = 1;
             break;
         case 'h':
             flag_help = 1;
@@ -230,6 +235,7 @@ void print_help() {
     printf("--block-size SIZE | -b SIZE sets block size to write and read each time. Default value is %d\n", DEFAULT_BLOCK_SIZE);
     printf("--processes COUNT | -p COUNT sets count of parallel processes\n");
     printf("--randomly | -r makes tests to lseek each time to random block\n");
+    printf("--no-clear prevents benchmark from clearing temp files\n");
     printf("--help | -h shows this tip\n");
 }
 
@@ -271,8 +277,10 @@ int main(int argc, char * argv []) {
     // report
     printf("Read in %f s\n", reading_time);
     // clear
-    if (clear()) {
-        return 3; // error already printed
+    if (!flag_no_clear) {
+        if (clear()) {
+            return 3; // error already printed
+        }
     }
     return 0;
 }
