@@ -227,6 +227,13 @@ int clear() {
     return 0;
 }
 
+int drop_cache_if_root() {
+    if (getuid() == 0) { // if root
+        system("echo 1 > /proc/sys/vm/drop_caches");
+    }
+    return 0;
+}
+
 void print_help() {
     printf("IO benchmark\n");
     printf("This utility writes and reads a few large files and records operation time.\n");
@@ -271,7 +278,7 @@ int main(int argc, char * argv []) {
     // report
     printf("Written in %f s\n", writing_time);
     // flush disk cache (root only)
-    // TODO
+    drop_cache_if_root();
     // do reading tests
     double reading_time = launch_tests(&launch_reader);
     // report
